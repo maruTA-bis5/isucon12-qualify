@@ -13,5 +13,5 @@ WorkingDirectory=/home/isucon/webapp
 #ExecStart=docker compose -f docker-compose-go.yml up --build
 #ExecStop=docker compose -f docker-compose-go.yml down
 ExecStart=/home/isucon/webapp/go/dist/isuports
-EnviornmentFile=/home/isucon/webapp/go/env
+EnvironmentFile=/home/isucon/webapp/go/env
 Restart=always
