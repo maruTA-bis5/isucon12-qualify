@@ -28,7 +28,7 @@ func (w *SpanWrap) SetAttributes(kv ...attribute.KeyValue) {
 }
 
 func startSpan(ctx context.Context, name string) (context.Context, SpanWrap) {
-	ctx, origSpan := tracer.Start(ctx, "getCurrentUser")
+	ctx, origSpan := tracer.Start(ctx, name)
 	return ctx, SpanWrap{orig: origSpan}
 }
 
