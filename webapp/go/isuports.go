@@ -799,12 +799,22 @@ func playersAddHandler(c echo.Context) error {
 	displayNames := params["display_name[]"]
 
 	pds := make([]PlayerDetail, 0, len(displayNames))
-	for _, displayName := range displayNames {
+
+	// 増分を１００にした
+	nHandled := len(displayNames) / 100
+	startID := ""
+	for i := 0; i <= nHandled; i++ {
 		id, err := dispenseID(ctx)
 		if err != nil {
 			return fmt.Errorf("error dispenseID: %w", err)
 		}
-
+		if startID == "" {
+			startID = id
+		}
+	}
+	startIDInt, _ := strconv.Atoi(startID)
+	for i, displayName := range displayNames {
+		id := fmt.Sprintf("%d", startIDInt+i)
 		now := time.Now().Unix()
 		if _, err := tenantDB.ExecContext(
 			ctx,
