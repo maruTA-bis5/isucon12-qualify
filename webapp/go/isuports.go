@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"os/exec"
@@ -85,6 +86,14 @@ func connectToTenantDB(id int64) (*sqlx.DB, error) {
 	db, err := otelsqlx.Open(sqliteDriverName, fmt.Sprintf("file:%s?mode=rw", p))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tenant DB: %w", err)
+	}
+	return db, nil
+}
+
+func connectToReadOnlyTenantDB(temporaryPath string) (*sqlx.DB, error) {
+	db, err := otelsqlx.Open(sqliteDriverName, fmt.Sprintf("file:%s?mode=ro", temporaryPath))
+	if err != nil {
+		return nil, fmt.Errorf("failed to open read-only temporary tenant DB: %w", err)
 	}
 	return db, nil
 }
@@ -1326,6 +1335,31 @@ type CompetitionRankingHandlerResult struct {
 	Ranks       []CompetitionRank `json:"ranks"`
 }
 
+func copyTenantDb(id int64) (string, error) {
+	tenantDBDir := getEnv("ISUCON_TENANT_DB_DIR", "../tenant_db")
+	tenantDBFile := fmt.Sprintf("%d.db", id)
+	tenantDBPath := filepath.Join(tenantDBDir, tenantDBFile)
+
+	src, err := os.Open(tenantDBPath)
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
+
+	temporaryDBFile := fmt.Sprintf("%d-%s", rand.Int(), tenantDBFile)
+	dst, err := os.Open(filepath.Join("/tmp", temporaryDBFile))
+	if err != nil {
+		return "", err
+	}
+	defer dst.Close()
+
+	_, err = io.Copy(dst, src)
+	if err != nil {
+		return "", err
+	}
+	return temporaryDBFile, nil
+}
+
 // 参加者向けAPI
 // GET /api/player/competition/:competition_id/ranking
 // 大会ごとのランキングを取得する
@@ -1339,7 +1373,13 @@ func competitionRankingHandler(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusForbidden, "role player required")
 	}
 
-	tenantDB, err := connectToTenantDB(v.tenantID)
+	// tenantDB, err := connectToTenantDB(v.tenantID)
+	temporaryDBPath, err := copyTenantDb(v.tenantID)
+	if err != nil {
+		return err
+	}
+	defer os.Remove(temporaryDBPath)
+	tenantDB, err := connectToReadOnlyTenantDB(temporaryDBPath)
 	if err != nil {
 		return err
 	}
@@ -1389,11 +1429,11 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 
 	// player_scoreを読んでいるときに更新が走ると不整合が起こるのでロックを取得する
-	fl, err := flockByTenantID(v.tenantID)
-	if err != nil {
-		return fmt.Errorf("error flockByTenantID: %w", err)
-	}
-	defer fl.Close()
+	// fl, err := flockByTenantID(v.tenantID)
+	// if err != nil {
+	// 	return fmt.Errorf("error flockByTenantID: %w", err)
+	// }
+	// defer fl.Close()
 	pss := []PlayerScoreRow{}
 	if err := tenantDB.SelectContext(
 		ctx,
