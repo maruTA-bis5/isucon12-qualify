@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/exec"
@@ -1699,23 +1698,6 @@ func initializeHandler(c echo.Context) error {
 	if err != nil {
 		return fmt.Errorf("error exec.Command: %s %e", string(out), err)
 	}
-	files, err := ioutil.ReadDir("../tenant_db")
-	if err != nil {
-		return err
-	}
-	for _, file := range files {
-		if file.IsDir() {
-			continue
-		}
-		name := file.Name()
-		tenantIDStr := strings.TrimSuffix(name, ".db")
-		tenantID, err := strconv.ParseInt(tenantIDStr, 10, 64)
-		if err != nil {
-			return err
-		}
-		tenantDBLocks[tenantID] = &sync.Mutex{}
-	}
-
 	res := InitializeHandlerResult{
 		Lang: "go",
 	}
