@@ -1342,8 +1342,7 @@ func copyTenantDb(id int64) (string, error) {
 
 	src, err := os.Open(tenantDBPath)
 	if err != nil {
-		// return "", err
-		return "NOTFOUND", err
+		return "", err
 	}
 	defer src.Close()
 
@@ -1376,9 +1375,6 @@ func competitionRankingHandler(c echo.Context) error {
 
 	// tenantDB, err := connectToTenantDB(v.tenantID)
 	temporaryDBPath, err := copyTenantDb(v.tenantID)
-	if temporaryDBPath == "NOTFOUND" {
-		return echo.NewHTTPError(http.StatusUnauthorized, "tenant not found")
-	}
 	if err != nil {
 		return err
 	}
