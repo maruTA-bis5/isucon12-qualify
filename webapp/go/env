@@ -4,3 +4,4 @@ ISUCON_DB_USER=isucon
 ISUCON_DB_PASSWORD~isucon
 ISUCON_DB_NAME=isuports
 ISUCON_DB_INIT_DIR=/home/isucon/initial_data
+ECHO_LOGLEVEL=ERROR

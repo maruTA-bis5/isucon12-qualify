@@ -138,7 +138,14 @@ func SetCacheControlPrivate(next echo.HandlerFunc) echo.HandlerFunc {
 func Run() {
 	e := echo.New()
 	e.Debug = true
-	e.Logger.SetLevel(log.DEBUG)
+	logLevel := getEnv("ECHO_LOGLEVEL", "DEBUG")
+	if logLevel == "ERROR" {
+		e.Logger.SetLevel(log.ERROR)
+	} else if logLevel == "WARN" {
+		e.Logger.SetLevel(log.WARN)
+	} else if logLevel == "DEBUG" {
+		e.Logger.SetLevel(log.DEBUG)
+	}
 
 	var (
 		sqlLogger io.Closer
