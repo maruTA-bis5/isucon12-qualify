@@ -16,6 +16,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
@@ -82,11 +83,28 @@ func tenantDBPath(id int64) string {
 // テナントDBに接続する
 func connectToTenantDB(id int64) (*sqlx.DB, error) {
 	p := tenantDBPath(id)
+	tenantDBConnLock.Lock()
+	defer tenantDBConnLock.Unlock()
+
+	if tenantDBConn[p] != nil {
+		return tenantDBConn[p], nil
+	}
+
 	db, err := otelsqlx.Open(sqliteDriverName, fmt.Sprintf("file:%s?mode=rw", p))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open tenant DB: %w", err)
 	}
+	tenantDBConn[p] = db
 	return db, nil
+}
+
+var tenantDBConnLock sync.Mutex
+var tenantDBConn = map[string]*sqlx.DB{}
+
+func closeTenantDB() {
+	for _, c := range tenantDBConn {
+		c.Close()
+	}
 }
 
 // テナントDBを新規に作成する
@@ -200,6 +218,8 @@ func Run() {
 	e.Logger.Infof("starting isuports server on : %s ...", port)
 	serverPort := fmt.Sprintf(":%s", port)
 	e.Logger.Fatal(e.Start(serverPort))
+
+	defer closeTenantDB()
 }
 
 // エラー処理関数
