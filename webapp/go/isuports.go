@@ -1329,6 +1329,12 @@ type CompetitionRankingHandlerResult struct {
 	Ranks       []CompetitionRank `json:"ranks"`
 }
 
+type RankingPlayerScoreRow struct {
+	PlayerID string `db:"player_id"`
+	Score    int64  `db:"score"`
+	RowNum   int64  `db:"row_num"`
+}
+
 // 参加者向けAPI
 // GET /api/player/competition/:competition_id/ranking
 // 大会ごとのランキングを取得する
@@ -1397,11 +1403,11 @@ func competitionRankingHandler(c echo.Context) error {
 		return fmt.Errorf("error flockByTenantID: %w", err)
 	}
 	defer fl.Close()
-	pss := []PlayerScoreRow{}
+	pss := []RankingPlayerScoreRow{}
 	if err := tenantDB.SelectContext(
 		ctx,
 		&pss,
-		"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC",
+		"SELECT player_id, score, row_num FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC",
 		tenant.ID,
 		competitionID,
 	); err != nil {
@@ -1409,6 +1415,18 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 	ranks := make([]CompetitionRank, 0, len(pss))
 	scoredPlayerSet := make(map[string]struct{}, len(pss))
+	playerIDSet := make(map[string]struct{}, len(pss))
+	for _, ps := range pss {
+		playerIDSet[ps.PlayerID] = struct{}{}
+	}
+	playerIDs := []string{}
+	for k := range playerIDSet {
+		playerIDs = append(playerIDs, k)
+	}
+	playerByID, err := bulkLoadPlayers(ctx, tenantDB, playerIDs)
+	if err != nil {
+		return fmt.Errorf("error bulkLoadPlayers: %w", err)
+	}
 	for _, ps := range pss {
 		// player_scoreが同一player_id内ではrow_numの降順でソートされているので
 		// 現れたのが2回目以降のplayer_idはより大きいrow_numでスコアが出ているとみなせる
@@ -1416,10 +1434,7 @@ func competitionRankingHandler(c echo.Context) error {
 			continue
 		}
 		scoredPlayerSet[ps.PlayerID] = struct{}{}
-		p, err := retrievePlayer(ctx, tenantDB, ps.PlayerID)
-		if err != nil {
-			return fmt.Errorf("error retrievePlayer: %w", err)
-		}
+		p := playerByID[ps.PlayerID]
 		ranks = append(ranks, CompetitionRank{
 			Score:             ps.Score,
 			PlayerID:          p.ID,
@@ -1461,6 +1476,27 @@ func competitionRankingHandler(c echo.Context) error {
 		},
 	}
 	return c.JSON(http.StatusOK, res)
+}
+
+func bulkLoadPlayers(ctx context.Context, tenantDB dbOrTx, playerIDs []string) (map[string]PlayerRow, error) {
+	if len(playerIDs) == 0 {
+		return map[string]PlayerRow{}, nil
+	}
+	sql := "SELECT id, display_name FROM player WHERE id IN (?)"
+	query, params, err := sqlx.In(sql, playerIDs)
+	if err != nil {
+		return map[string]PlayerRow{}, err
+	}
+	rows := []PlayerRow{}
+	if err := tenantDB.GetContext(ctx, &rows, query, params...); err != nil {
+		return nil, fmt.Errorf("error bulk load players: %w", err)
+	}
+
+	results := map[string]PlayerRow{}
+	for _, p := range rows {
+		results[p.ID] = p
+	}
+	return results, nil
 }
 
 type CompetitionsHandlerResult struct {
