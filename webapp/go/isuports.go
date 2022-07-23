@@ -1347,7 +1347,7 @@ func copyTenantDb(id int64) (string, error) {
 	defer src.Close()
 
 	temporaryDBFile := fmt.Sprintf("%d-%s", rand.Int(), tenantDBFile)
-	dst, err := os.Open(filepath.Join("/tmp", temporaryDBFile))
+	dst, err := os.Create(filepath.Join("/tmp", temporaryDBFile))
 	if err != nil {
 		return "", err
 	}
