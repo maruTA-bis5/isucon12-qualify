@@ -1150,6 +1150,16 @@ func competitionScoreHandler(c echo.Context) error {
 			)
 
 		}
+		if _, err := adminDB.NamedExecContext(
+			ctx,
+			"INSERT INTO latest_player_score(player_id, tenant_id, competition_id, score) VALUES (:player_id, :tenant_id, :competition_id, :score) ON DUPLICATE KEY UPDATE score = :score)",
+			ps,
+		); err != nil {
+			return fmt.Errorf(
+				"error Insert latest_player_score: id=%s, tenant_id=%d, playerID=%s, competitionID=%s, score=%d, rowNum=%d, createdAt=%d, updatedAt=%d, %w",
+				ps.ID, ps.TenantID, ps.PlayerID, ps.CompetitionID, ps.Score, ps.RowNum, ps.CreatedAt, ps.UpdatedAt, err,
+			)
+		}
 	}
 
 	return c.JSON(http.StatusOK, SuccessResult{
@@ -1272,11 +1282,11 @@ func playerHandler(c echo.Context) error {
 	pss := make([]PlayerScoreRow, 0, len(cs))
 	for _, c := range cs {
 		ps := PlayerScoreRow{}
-		if err := tenantDB.GetContext(
+		if err := adminDB.GetContext(
 			ctx,
 			&ps,
 			// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
-			"SELECT * FROM player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? ORDER BY row_num DESC LIMIT 1",
+			"SELECT * FROM latest_player_score WHERE tenant_id = ? AND competition_id = ? AND player_id = ? LIMIT 1",
 			v.tenantID,
 			c.ID,
 			p.ID,
@@ -1404,10 +1414,10 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 	defer fl.Close()
 	pss := []RankingPlayerScoreRow{}
-	if err := tenantDB.SelectContext(
+	if err := adminDB.SelectContext(
 		ctx,
 		&pss,
-		"SELECT player_id, score, row_num FROM player_score WHERE tenant_id = ? AND competition_id = ? ORDER BY row_num DESC",
+		"SELECT player_id, score FROM latest_player_score WHERE tenant_id = ? AND competition_id = ?",
 		tenant.ID,
 		competitionID,
 	); err != nil {
