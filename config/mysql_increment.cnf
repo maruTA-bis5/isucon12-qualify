@@ -1,2 +1,2 @@
 [mysqld]
-auto_increment_increment = 100
+auto_increment_increment = 110
