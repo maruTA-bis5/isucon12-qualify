@@ -49,7 +49,7 @@ func InstallTracerProvider(ctx context.Context) error {
 func newResource() *resource.Resource {
 	return resource.NewWithAttributes(
 		semconv.SchemaURL,
-		semconv.ServiceNameKey.String("isucon11p"),
+		semconv.ServiceNameKey.String("isuports"),
 		semconv.ServiceVersionKey.String("0.0.1"),
 	)
 }
