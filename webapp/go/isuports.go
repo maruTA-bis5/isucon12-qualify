@@ -27,6 +27,9 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwa"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/uptrace/opentelemetry-go-extra/otelsqlx"
+
+	"go.opentelemetry.io/contrib/instrumentation/github.com/labstack/echo/otelecho"
 )
 
 const (
@@ -67,7 +70,7 @@ func connectAdminDB() (*sqlx.DB, error) {
 	config.DBName = getEnv("ISUCON_DB_NAME", "isuports")
 	config.ParseTime = true
 	dsn := config.FormatDSN()
-	return sqlx.Open("mysql", dsn)
+	return otelsqlx.Open("mysql", dsn)
 }
 
 // テナントDBのパスを返す
@@ -151,6 +154,7 @@ func Run() {
 	}
 	defer sqlLogger.Close()
 
+	e.Use(otelecho.Middleware("isuports"))
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(SetCacheControlPrivate)
