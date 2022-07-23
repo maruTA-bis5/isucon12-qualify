@@ -16,10 +16,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-sql-driver/mysql"
-	"github.com/gofrs/flock"
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -97,6 +97,7 @@ func createTenantDB(id int64) error {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("failed to exec sqlite3 %s < %s, out=%s: %w", p, tenantDBSchemaFilePath, string(out), err)
 	}
+	tenantDBLocks[id] = &sync.Mutex{}
 	return nil
 }
 
@@ -441,18 +442,31 @@ func lockFilePath(id int64) string {
 	return filepath.Join(tenantDBDir, fmt.Sprintf("%d.lock", id))
 }
 
+var tenantDBLocks = map[int64]*sync.Mutex{}
+
+type TenantDBLock struct {
+	tenantID int64
+}
+
+func (t *TenantDBLock) Lock() {
+	tenantDBLocks[t.tenantID].Lock()
+}
+func (t *TenantDBLock) Unlock() {
+	tenantDBLocks[t.tenantID].Unlock()
+}
+func (t *TenantDBLock) Close() error {
+	t.Unlock()
+	return nil
+}
+
 // 排他ロックする
-func flockByTenantID(ctx context.Context, tenantID int64) (io.Closer, error) {
+func flockByTenantID(ctx context.Context, tenantID int64) (*TenantDBLock, error) {
 	_, span := startSpan(ctx, "flockByTenantID")
 	defer span.End()
 
-	p := lockFilePath(tenantID)
-
-	fl := flock.New(p)
-	if err := fl.Lock(); err != nil {
-		return nil, fmt.Errorf("error flock.Lock: path=%s, %w", p, err)
-	}
-	return fl, nil
+	lock := &TenantDBLock{tenantID: tenantID}
+	lock.Lock()
+	return lock, nil
 }
 
 type TenantsAddHandlerResult struct {
@@ -1403,6 +1417,7 @@ func competitionRankingHandler(c echo.Context) error {
 	// 	return fmt.Errorf("error flockByTenantID: %w", err)
 	// }
 	// defer fl.Close()
+	tenantDBLocks[v.tenantID].Lock()
 	pss := []RankingPlayerScoreRow{}
 	if err := tenantDB.SelectContext(
 		ctx,
