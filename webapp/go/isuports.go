@@ -1482,13 +1482,13 @@ func bulkLoadPlayers(ctx context.Context, tenantDB dbOrTx, playerIDs []string) (
 	if len(playerIDs) == 0 {
 		return map[string]PlayerRow{}, nil
 	}
-	sql := "SELECT * FROM player WHERE id IN (?)"
+	sql := "SELECT id, display_name FROM player WHERE id IN (?)"
 	query, params, err := sqlx.In(sql, playerIDs)
 	if err != nil {
 		return map[string]PlayerRow{}, err
 	}
 	rows := []PlayerRow{}
-	if err := tenantDB.GetContext(ctx, &rows, query, params...); err != nil {
+	if err := tenantDB.SelectContext(ctx, &rows, query, params...); err != nil {
 		return nil, fmt.Errorf("error bulk load players: %w", err)
 	}
 
