@@ -49,6 +49,8 @@ var (
 
 	adminDB *sqlx.DB
 
+	scoreDB *sqlx.DB
+
 	sqliteDriverName = "sqlite3"
 )
 
@@ -68,6 +70,18 @@ func connectAdminDB() (*sqlx.DB, error) {
 	config.User = getEnv("ISUCON_DB_USER", "isucon")
 	config.Passwd = getEnv("ISUCON_DB_PASSWORD", "isucon")
 	config.DBName = getEnv("ISUCON_DB_NAME", "isuports")
+	config.ParseTime = true
+	dsn := config.FormatDSN()
+	return otelsqlx.Open("mysql", dsn)
+}
+
+func connectScoreDB() (*sqlx.DB, error) {
+	config := mysql.NewConfig()
+	config.Net = "tcp"
+	config.Addr = getEnv("ISUCON_SCORE_DB_HOST", "127.0.0.1") + ":" + getEnv("ISUCON_SCORE_DB_PORT", "3306")
+	config.User = getEnv("ISUCON_SCORE_DB_USER", "isucon")
+	config.Passwd = getEnv("ISUCON_SCORE_DB_PASSWORD", "isucon")
+	config.DBName = getEnv("ISUCON_SCORE_DB_NAME", "isuports")
 	config.ParseTime = true
 	dsn := config.FormatDSN()
 	return otelsqlx.Open("mysql", dsn)
@@ -202,6 +216,14 @@ func Run() {
 	}
 	adminDB.SetMaxOpenConns(10)
 	defer adminDB.Close()
+
+	scoreDB, err = connectScoreDB()
+	if err != nil {
+		e.Logger.Fatalf("failed to connect score db: %v", err)
+		return
+	}
+	scoreDB.SetMaxOpenConns(10)
+	defer scoreDB.Close()
 
 	port := getEnv("SERVER_APP_PORT", "3000")
 	e.Logger.Infof("starting isuports server on : %s ...", port)
@@ -1150,7 +1172,7 @@ func competitionScoreHandler(c echo.Context) error {
 			)
 
 		}
-		if _, err := adminDB.NamedExecContext(
+		if _, err := scoreDB.NamedExecContext(
 			ctx,
 			"INSERT INTO latest_player_score(player_id, tenant_id, competition_id, score) VALUES (:player_id, :tenant_id, :competition_id, :score) ON DUPLICATE KEY UPDATE score = :score",
 			ps,
@@ -1276,7 +1298,7 @@ func playerHandler(c echo.Context) error {
 	pss := make([]PlayerScoreRow, 0, len(cs))
 	for _, c := range cs {
 		ps := PlayerScoreRow{}
-		if err := adminDB.GetContext(
+		if err := scoreDB.GetContext(
 			ctx,
 			&ps,
 			// 最後にCSVに登場したスコアを採用する = row_numが一番大きいもの
@@ -1402,7 +1424,7 @@ func competitionRankingHandler(c echo.Context) error {
 	}
 
 	pss := []RankingPlayerScoreRow{}
-	if err := adminDB.SelectContext(
+	if err := scoreDB.SelectContext(
 		ctx,
 		&pss,
 		"SELECT player_id, score FROM latest_player_score WHERE tenant_id = ? AND competition_id = ?",
