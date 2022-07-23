@@ -819,7 +819,12 @@ func playersAddHandler(c echo.Context) error {
 			startID = id
 		}
 	}
-	startIDInt, _ := strconv.Atoi(startID)
+	startIDInt, err := strconv.Atoi(startID)
+	if err != nil {
+		return fmt.Errorf(
+			"error id generating. startID=%s, %w", startID, err,
+		)
+	}
 	for i, displayName := range displayNames {
 		id := fmt.Sprintf("%d", startIDInt+i)
 		now := time.Now().Unix()
