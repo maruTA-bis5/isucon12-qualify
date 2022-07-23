@@ -1152,7 +1152,7 @@ func competitionScoreHandler(c echo.Context) error {
 		}
 		if _, err := adminDB.NamedExecContext(
 			ctx,
-			"INSERT INTO latest_player_score(player_id, tenant_id, competition_id, score) VALUES (:player_id, :tenant_id, :competition_id, :score) ON DUPLICATE KEY UPDATE score = :score)",
+			"INSERT INTO latest_player_score(player_id, tenant_id, competition_id, score) VALUES (:player_id, :tenant_id, :competition_id, :score) ON DUPLICATE KEY UPDATE score = :score",
 			ps,
 		); err != nil {
 			return fmt.Errorf(

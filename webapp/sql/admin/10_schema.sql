@@ -31,3 +31,11 @@ CREATE TABLE `visit_history` (
 ) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
 
 CREATE INDEX visit_history_all_ids_idx ON visit_history(tenant_id, competition_id, player_id);
+
+CREATE TABLE `latest_player_score` (
+  `tenant_id` BIGINT UNSIGNED NOT NULL,
+  `competition_id` VARCHAR(255) NOT NULL,
+  `player_id` VARCHAR(255) NOT NULL,
+  `score` BIGINT NOT NULL,
+  PRIMARY KEY `latest_player_score_key` (`tenant_id`, `competition_id`, `player_id`)
+) ENGINE=InnoDB DEFAULT CHARACTER SET=utf8mb4;
