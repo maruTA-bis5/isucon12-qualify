@@ -1482,7 +1482,7 @@ func bulkLoadPlayers(ctx context.Context, tenantDB dbOrTx, playerIDs []string) (
 	if len(playerIDs) == 0 {
 		return map[string]PlayerRow{}, nil
 	}
-	sql := "SELECT id, display_name FROM player WHERE id IN (?)"
+	sql := "SELECT * FROM player WHERE id IN (?)"
 	query, params, err := sqlx.In(sql, playerIDs)
 	if err != nil {
 		return map[string]PlayerRow{}, err
