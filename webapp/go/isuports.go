@@ -1138,14 +1138,6 @@ func competitionScoreHandler(c echo.Context) error {
 	); err != nil {
 		return fmt.Errorf("error Delete player_score: tenantID=%d, competitionID=%s, %w", v.tenantID, competitionID, err)
 	}
-	if _, err := adminDB.ExecContext(
-		ctx,
-		"DELETE FROM latest_player_score WHERE tenant_id = ? AND competition_id = ?",
-		v.tenantID,
-		competitionID,
-	); err != nil {
-		return fmt.Errorf("error Delete latest_player_score: tenantID=%d, competitionID=%s, %w", v.tenantID, competitionID, err)
-	}
 	for _, ps := range playerScoreRows {
 		if _, err := tenantDB.NamedExecContext(
 			ctx,
